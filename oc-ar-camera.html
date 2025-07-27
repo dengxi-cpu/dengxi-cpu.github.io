@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OC AR Camera - 原创角色AR拍照</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    backdropBlur: {
+                        'xs': '2px',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-soft': 'bounce 2s infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%': { boxShadow: '0 0 20px rgba(139, 92, 246, 0.3)' },
+                            '100%': { boxShadow: '0 0 40px rgba(139, 92, 246, 0.6)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { 
+            overflow: hidden; 
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .camera-preview {
+            background: linear-gradient(45deg, #1a1a2e, #16213e);
+            position: relative;
+            overflow: hidden;
+        }
+        .camera-preview::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&h=600&fit=crop') center/cover;
+            opacity: 0.3;
+            z-index: 1;
+        }
+        .ar-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+    </style>
+</head>
+<body class="h-full font-sans text-white antialiased">
+    <div class="h-screen flex flex-col relative">
+        <!-- 顶部状态栏 -->
+        <div class="flex justify-between items-center p-4 glass-dark z-20">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-gradient-to-r from-violet-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-semibold">OC AR Camera</h1>
+                    <p class="text-xs text-gray-400">原创角色AR拍照</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button class="glass w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition-all duration-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </button>
+                <button class="glass w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition-all duration-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 主相机预览区域 -->
+        <div class="flex-1 relative">
+            <div class="camera-preview w-full h-full">
+                <!-- AR角色叠加 -->
+                <div class="ar-overlay">
+                    <div class="relative">
+                        <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=300&fit=crop&crop=face" 
+                             alt="AR Character" 
+                             class="w-32 h-48 rounded-lg shadow-2xl opacity-80 animate-bounce-soft">
+                        <!-- AR效果光环 -->
+                        <div class="absolute -inset-4 bg-gradient-to-r from-violet-500/20 to-purple-600/20 rounded-xl blur-xl animate-glow"></div>
+                    </div>
+                </div>
+
+                <!-- AR扫描网格效果 -->
+                <div class="absolute inset-0 z-10 pointer-events-none">
+                    <div class="absolute top-8 left-8 w-8 h-8 border-l-2 border-t-2 border-violet-400 opacity-60"></div>
+                    <div class="absolute top-8 right-8 w-8 h-8 border-r-2 border-t-2 border-violet-400 opacity-60"></div>
+                    <div class="absolute bottom-24 left-8 w-8 h-8 border-l-2 border-b-2 border-violet-400 opacity-60"></div>
+                    <div class="absolute bottom-24 right-8 w-8 h-8 border-r-2 border-b-2 border-violet-400 opacity-60"></div>
+                </div>
+            </div>
+
+            <!-- 左侧角色选择面板 -->
+            <div class="absolute left-4 top-1/2 -translate-y-1/2 z-20">
+                <div class="glass rounded-2xl p-4 space-y-3">
+                    <h3 class="text-sm font-medium text-center mb-3">角色库</h3>
+                    <div class="space-y-3">
+                        <button class="character-btn active" data-character="1">
+                            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=60&h=60&fit=crop&crop=face" alt="角色1" class="w-full h-full object-cover">
+                        </button>
+                        <button class="character-btn" data-character="2">
+                            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=60&h=60&fit=crop&crop=face" alt="角色2" class="w-full h-full object-cover">
+                        </button>
+                        <button class="character-btn" data-character="3">
+                            <img src="https://images.unsplash.com/photo-1494790108755-2616b612b786?w=60&h=60&fit=crop&crop=face" alt="角色3" class="w-full h-full object-cover">
+                        </button>
+                        <button class="character-btn" data-character="4">
+                            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=60&h=60&fit=crop&crop=face" alt="角色4" class="w-full h-full object-cover">
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧效果控制面板 -->
+            <div class="absolute right-4 top-1/2 -translate-y-1/2 z-20">
+                <div class="glass rounded-2xl p-4 space-y-4">
+                    <h3 class="text-sm font-medium text-center">效果</h3>
+                    <div class="space-y-3">
+                        <button class="effect-btn active" data-effect="glow">
+                            <div class="w-6 h-6 bg-gradient-to-r from-violet-400 to-purple-500 rounded-full"></div>
+                        </button>
+                        <button class="effect-btn" data-effect="sparkle">
+                            <div class="w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
+                        </button>
+                        <button class="effect-btn" data-effect="neon">
+                            <div class="w-6 h-6 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full"></div>
+                        </button>
+                        <button class="effect-btn" data-effect="rainbow">
+                            <div class="w-6 h-6 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 rounded-full"></div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部控制栏 -->
+        <div class="glass-dark p-6 z-20">
+            <div class="flex items-center justify-between">
+                <!-- 照片库 -->
+                <button class="glass w-14 h-14 rounded-2xl flex items-center justify-center hover:scale-105 transition-all duration-300">
+                    <div class="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=32&h=32&fit=crop" alt="最新照片" class="w-full h-full object-cover">
+                    </div>
+                </button>
+
+                <!-- 拍照按钮 -->
+                <button id="captureBtn" class="relative">
+                    <div class="w-20 h-20 bg-gradient-to-r from-violet-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all duration-300 animate-glow">
+                        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-violet-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586l-.707-.707A1 1 0 0013 4H7a1 1 0 00-.707.293L5.586 5H4zm6 9a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <!-- 脉冲动画环 -->
+                    <div class="absolute inset-0 w-20 h-20 bg-violet-500/30 rounded-full animate-ping"></div>
+                </button>
+
+                <!-- 滤镜切换 -->
+                <button class="glass w-14 h-14 rounded-2xl flex items-center justify-center hover:scale-105 transition-all duration-300">
+                    <svg class="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v2a1 1 0 01-1 1h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8H3a1 1 0 01-1-1V5a1 1 0 011-1h4z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- 滤镜选择栏 -->
+            <div class="flex justify-center space-x-4 mt-4">
+                <button class="filter-btn active" data-filter="original">原图</button>
+                <button class="filter-btn" data-filter="vintage">复古</button>
+                <button class="filter-btn" data-filter="cyber">赛博</button>
+                <button class="filter-btn" data-filter="dreamy">梦幻</button>
+                <button class="filter-btn" data-filter="noir">黑白</button>
+            </div>
+        </div>
+
+        <!-- 拍照闪光效果 -->
+        <div id="flashOverlay" class="fixed inset-0 bg-white opacity-0 z-50 pointer-events-none transition-opacity duration-150"></div>
+
+        <!-- 成功提示 -->
+        <div id="successMessage" class="fixed top-20 left-1/2 -translate-x-1/2 glass rounded-xl px-6 py-3 opacity-0 transition-all duration-300 z-50">
+            <div class="flex items-center space-x-2">
+                <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <span class="text-sm font-medium">照片已保存</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 角色选择功能
+        const characterBtns = document.querySelectorAll('.character-btn');
+        const arOverlay = document.querySelector('.ar-overlay img');
+        
+        const characters = {
+            '1': 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=300&fit=crop&crop=face',
+            '2': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=300&fit=crop&crop=face',
+            '3': 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=300&fit=crop&crop=face',
+            '4': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=300&fit=crop&crop=face'
+        };
+
+        characterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                characterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const characterId = btn.dataset.character;
+                arOverlay.src = characters[characterId];
+            });
+        });
+
+        // 效果选择功能
+        const effectBtns = document.querySelectorAll('.effect-btn');
+        effectBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                effectBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                // 这里可以添加不同的AR效果逻辑
+            });
+        });
+
+        // 滤镜选择功能
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                // 这里可以添加滤镜效果逻辑
+            });
+        });
+
+        // 拍照功能
+        const captureBtn = document.getElementById('captureBtn');
+        const flashOverlay = document.getElementById('flashOverlay');
+        const successMessage = document.getElementById('successMessage');
+
+        captureBtn.addEventListener('click', () => {
+            // 闪光效果
+            flashOverlay.style.opacity = '0.8';
+            setTimeout(() => {
+                flashOverlay.style.opacity = '0';
+            }, 150);
+
+            // 拍照按钮动画
+            captureBtn.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                captureBtn.style.transform = 'scale(1)';
+            }, 150);
+
+            // 成功提示
+            setTimeout(() => {
+                successMessage.style.opacity = '1';
+                successMessage.style.transform = 'translate(-50%, 0)';
+                setTimeout(() => {
+                    successMessage.style.opacity = '0';
+                    successMessage.style.transform = 'translate(-50%, -20px)';
+                }, 2000);
+            }, 300);
+        });
+
+        // 添加动态样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .character-btn {
+                width: 60px;
+                height: 60px;
+                border-radius: 16px;
+                overflow: hidden;
+                border: 2px solid transparent;
+                transition: all 0.3s ease;
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+            }
+            .character-btn.active {
+                border-color: rgb(139, 92, 246);
+                box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+                transform: scale(1.1);
+            }
+            .character-btn:hover {
+                transform: scale(1.05);
+                background: rgba(255, 255, 255, 0.1);
+            }
+            
+            .effect-btn {
+                width: 48px;
+                height: 48px;
+                border-radius: 12px;
+                border: 2px solid transparent;
+                transition: all 0.3s ease;
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .effect-btn.active {
+                border-color: rgb(139, 92, 246);
+                box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+                transform: scale(1.1);
+            }
+            .effect-btn:hover {
+                transform: scale(1.05);
+                background: rgba(255, 255, 255, 0.1);
+            }
+            
+            .filter-btn {
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 500;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+                transition: all 0.3s ease;
+                color: rgba(255, 255, 255, 0.7);
+            }
+            .filter-btn.active {
+                background: linear-gradient(45deg, rgb(139, 92, 246), rgb(147, 51, 234));
+                border-color: rgb(139, 92, 246);
+                color: white;
+                box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+            }
+            .filter-btn:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: white;
+                transform: translateY(-2px);
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
